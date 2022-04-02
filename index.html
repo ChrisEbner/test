@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div class="app"></div>
+
+    <script>
+        // Create an empty canvas with 600 by 400 dimensions
+        var canvas = document.createElement('canvas');
+        document.body.appendChild(canvas);
+
+        
+        const carWidth = 120;
+        const carHeight = 60;
+
+        class Car {
+            // Constructor
+            constructor(x, y, color, isNpc = false) {
+                this.x = x;
+                this.y = y;
+                this.width = carWidth;
+                this.height = carHeight;
+                this.speed = 0;
+                this.angle = 0;
+                this.color = color;
+                this.maxSpeed = 10;
+                this.image = new Image();
+                this.image.src = 'car.svg';
+                this.isNPC = isNpc
+                this.kills = 0;
+                this.killsDisplayed = 0;
+
+                this.lastDecisionTime = Date.now()
+            }
+
+            updatePosition() {
+                this.x = this.x + this.speed * Math.cos(this.angle);
+                this.y = this.y + this.speed * Math.sin(this.angle);
+                
+                // if this.x is greater than the width of the canvas minus the width of the car,
+                // then set this.x to the width of the canvas minus the width of the car
+                if (this.x > canvas.width + this.width) {
+                    this.x = 0 - this.width;
+                }
+
+                // if this.x is less than 0 minus the width of the car,
+                // then set this.x to 0 minus the width of the car
+                if (this.x < 0 - this.width) {
+                    this.x = canvas.width + this.width;
+                }
+
+                // if this.y is greater than the height of the canvas minus the height of the car,
+                // then set this.y to the height of the canvas minus the height of the car
+                if (this.y > canvas.height + this.height) {
+                    this.y = 0 - this.height;
+                }
+
+                if (this.y < 0 - this.height) {
+                    this.y = canvas.height + this.height;
+                }   
+            }
+
+
+            calculateNpcMove() {
+                // if the car is not an NPC, then return
+                if (!this.isNPC) {
+                    return;
+                }
+
+                // if the time passed since lastDecisionTime is greater than 1000, then
+                // roll a 100 dice and if the outcome of the roll is greater than 70, then
+                // change the angle of the car by a random number between -0.2 and 0.2
+                if (Date.now() - this.lastDecisionTime > 200) {
+                    let roll = Math.floor(Math.random() * 100);
+                    if (roll > 50) {
+                        this.angle = this.angle + (Math.random() * 0.4) - 0.4;
+                    }
+                    this.lastDecisionTime = Date.now();
+                }
+            }
+
+            // add a kill
+            addKill() {
+                this.kills++;
+            }
+
+            // Draw the car
+            draw() {
+                this.calculateNpcMove()
+                this.updatePosition()
+                // Get the context
+                var ctx = canvas.getContext('2d');
+                
+                ctx.fillStyle = this.color;
+                // Set the fill style
+                ctx.save()
+                
+                ctx.globalCompositeOperation = 'multiply';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.font = '30px Arial';
+                ctx.fillStyle = 'black';
+                ctx.fillText(this.kills, this.x + this.width / 2 - 10, this.y + this.height / 2 + 10);
+                
+                // rotate the car image to the angle
+                ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+                ctx.rotate(this.angle);
+                ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height);
+                
+                ctx.restore()            
+            }
+
+            // steer the car left
+            steerLeft() {
+                this.angle -= 0.1;
+            }
+
+            // steer the car right
+            steerRight() {
+                this.angle += 0.1;
+            }
+
+            // speed up the car
+            speedUp() {
+                // if the car is not at the maximum speed
+                // increase the speed
+                if (this.speed < this.maxSpeed) {
+                    this.speed += 0.5;
+                }
+            }
+
+            // slow down the car
+            slowDown() {
+                // if the car is not at the minimum speed
+                // decrease the speed
+                if (this.speed > 0) {
+                    this.speed -= 0.5;
+                }
+            }
+
+            animate() {}
+        }
+
+        // create a game board class that controls all the elements on the canvas
+        class GameBoard {
+            // Constructor
+            constructor(width, height, color) {
+                this.width = width;
+                this.height = height;
+                this.color = color;
+                this.cars = []
+
+                this.startTime = Date.now();
+
+                canvas.width = this.width
+                canvas.height = this.height
+                
+                // set the background color of the canvas to the color passed in
+                canvas.style.backgroundColor = this.color;
+
+                this.registerCar(createEnemyCar())
+            }
+
+            registerCar(car) {
+                this.cars.push(car);
+            }
+
+            animate() {
+
+                // calculate the time passed from this.startTime as seconds
+                var timePassed = Math.floor((Date.now() - this.startTime) / 1000);
+
+                // increase the speed of all cars every 20 seconds
+                if (timePassed % 20 == 0) {
+                    this.cars.forEach(car => {
+                        car.speedUp();
+                    });
+                }
+
+                // every ten seconds, add a new enemy car
+                if (timePassed % 10 == 0) {
+                    if (this.cars.length < timePassed / 10) {
+                        this.registerCar(createEnemyCar());
+                    }
+                        
+                }
+
+                // Clear the canvas
+                var ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw the timepassed as centered text on the top of the canvas
+                ctx.font = '200px monospace';
+                ctx.textAlign = 'center';
+                ctx.fontWeight = 'bold';
+                ctx.fillStyle = '#bbb';
+                ctx.fillText(timePassed, canvas.width / 2, canvas.height / 2);
+
+
+                // Draw the cars
+                for (var i = 0; i < this.cars.length; i++) {
+                    this.cars[i].animate();
+                    this.cars[i].draw();
+                }
+
+                // if a non-npc car collides with an npc car, then remove the npc car and add a kill to the non-npc car
+                for (var i = 0; i < this.cars.length; i++) {
+                    if (!this.cars[i].isNPC) {
+                        for (var j = 0; j < this.cars.length; j++) {
+                            if (this.cars[j].isNPC) {
+                                if (this.cars[i].x < this.cars[j].x + this.cars[j].width &&
+                                    this.cars[i].x + this.cars[i].width > this.cars[j].x &&
+                                    this.cars[i].y < this.cars[j].y + this.cars[j].height &&
+                                    this.cars[i].y + this.cars[i].height > this.cars[j].y) {
+                                    this.cars[i].addKill();
+                                    this.cars.splice(j, 1);
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+                // Call animate again
+                requestAnimationFrame(this.animate.bind(this));
+            }
+        }
+
+
+        // create a new car as a function with random color and random position
+        function createEnemyCar() {
+            var x = Math.floor(Math.random() * canvas.width);
+            var y = Math.floor(Math.random() * canvas.height);
+            var color = '#' + Math.floor(Math.random() * 16777215).toString(16);
+            var car = new Car(x, y, color, true);
+            return car;
+        }
+
+
+        var myCar = new Car(100, 100, '#00ff00');
+        
+        myBoard = new GameBoard(1000, 1000, '#eee');
+        myBoard.registerCar(myCar);
+        // myBoard.registerCar(enemy);
+        myBoard.animate()
+
+
+        // if the user presses the right arrow key the car will move to the right
+        document.addEventListener('keydown', function(event) {
+            if (event.keyCode == 39) {
+                myCar.steerRight();
+            }
+            if (event.keyCode == 37) {
+                myCar.steerLeft();
+            }
+            else if (event.keyCode == 38) {
+                myCar.speedUp();
+            }
+            else if (event.keyCode == 40) {
+                myCar.slowDown();
+            }
+        });
+    </script>
+</body>
+</html>
